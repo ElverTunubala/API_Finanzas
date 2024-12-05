@@ -1,11 +1,10 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CreateTransactionDto } from './dto/create-transaction.dto';
-import { TransactionEntity } from '../transactions/entities/transaction.entity';
-import { CategoryEntity } from '../categorys/entities/category.entity';
 import { BudgetEntity } from '../budgets/entities/budget.entity';
-import { TransactionType } from '../transactions/entities/transaction.entity';
+import { CategoryEntity } from '../categorys/entities/category.entity';
+import { TransactionEntity, TransactionType } from '../transactions/entities/transaction.entity';
+import { CreateTransactionDto } from './dto/create-transaction.dto';
 
 export class TransactionService {
   constructor(
@@ -22,15 +21,14 @@ export class TransactionService {
   async createTransaction(createTransactionDto: CreateTransactionDto): Promise<TransactionEntity> {
     try {
       const { categoryId, budgetId, amount, type, userId, description,date } = createTransactionDto;
-      console.log("categoriaId: ",categoryId, "presopuestoId: ",budgetId)
-
+    
       if (!categoryId && !budgetId) {
         throw new BadRequestException('Either categoryId or budgetId must be provided');
       }
 
       let category: CategoryEntity | null = null;
       let budget: BudgetEntity | null = null;
-     
+
       if (categoryId) {
         category = await this.categoryRepository.findOne({ where: { id: categoryId } });
         if (!category) {
@@ -39,7 +37,6 @@ export class TransactionService {
       }
 
       if (budgetId) {
-
         budget = await this.budgetRepository.findOne({ where: { id: budgetId } });
         if (!budget) {
           throw new NotFoundException('Budget not found');
@@ -58,33 +55,21 @@ export class TransactionService {
           if (budget.remainingAmount < amount) {
             throw new BadRequestException('Insufficient budget balance');
           }
-          
           budget.remainingAmount -= amount;
+          budget.totalAmount -= amount;
         }
       } else if (type === TransactionType.INCOME) {
+
         if (category) {
-          category.remainingAmount += amount;
+          category.remainingAmount = amount+Number(category.remainingAmount);
+          category.assignedAmount = amount+Number(category.assignedAmount);
+
         } else if (budget) {
-         
-          budget.remainingAmount += amount;
+          budget.remainingAmount = amount+Number(budget.remainingAmount);
+          budget.totalAmount = amount+Number(budget.totalAmount);
         }
       } else {
         throw new BadRequestException('Invalid transaction type');
-      }
-
-      // Si la transacción es de tipo 'Income' o 'Expense', también debemos actualizar el total_amount de presupuesto o categoría
-      if (type === TransactionType.INCOME) {
-        if (category) {
-          category.assignedAmount += amount;
-        } else if (budget) {
-          budget.totalAmount += amount;
-        }
-      } else if (type === TransactionType.EXPENSE) {
-        if (category) {
-          category.assignedAmount -= amount;
-        } else if (budget) {
-          budget.totalAmount -= amount;
-        }
       }
 
       const transaction = this.transactionRepository.create({
@@ -92,10 +77,10 @@ export class TransactionService {
         amount,
         date: date || new Date(),
         type,
-        user: { id: userId }, 
+        user: { id: userId },
         budget,
       });
-      console.log("transaction: ",transaction);
+      
       await this.transactionRepository.save(transaction);
 
       if (category) {
@@ -115,4 +100,22 @@ export class TransactionService {
       throw new BadRequestException(`An unexpected error occurred: ${error.message || error}`);
     }
   }
+
+   // Método para listar transacciones por ID de usuario
+  async findTransactionsByUserId(userId: string): Promise<TransactionEntity[]> {
+    try {
+      const transactions = await this.transactionRepository.find({
+        where: { user: { id: userId } },
+        relations: ['category', 'budget'],
+      });
+
+      if (!transactions.length) {
+        throw new NotFoundException(`No transactions found for user with id ${userId}`);
+      }
+      return transactions;
+    } catch (error) {
+      throw new BadRequestException('An unexpected error occurred while fetching transactions');
+    }
+  }
+  
 }

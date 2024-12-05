@@ -1,7 +1,7 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { TransactionEntity } from '../transactions/entities/transaction.entity';
 import { TransactionService } from '../transactions/transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
-import { TransactionEntity } from '../transactions/entities/transaction.entity';
 
 @Controller('transactions')
 export class TransactionController {
@@ -10,5 +10,10 @@ export class TransactionController {
   @Post()
   async create(@Body() createTransactionDto: CreateTransactionDto): Promise<TransactionEntity> {
     return await this.transactionService.createTransaction(createTransactionDto);
+  }
+
+  @Get('user/:userId')
+  async findTransactionsByUserId(@Param('userId') userId: string): Promise<TransactionEntity[]> {
+    return await this.transactionService.findTransactionsByUserId(userId);
   }
 }

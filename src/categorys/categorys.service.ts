@@ -1,10 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
-import { CategoryEntity } from './entities/category.entity';
-import { CreateCategoryDto } from './dto/create-category.dto';
 import { BudgetEntity } from '../budgets/entities/budget.entity';
+import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { CategoryEntity } from './entities/category.entity';
 
 @Injectable()
 export class CategoryService {
@@ -108,6 +108,29 @@ export class CategoryService {
         throw error;
       }
       throw new BadRequestException('An unexpected error occurred');
+    }
+  }
+
+  async findCategoriesByUserId(userId: string): Promise<CategoryEntity[]> {
+    try {
+      const budgets = await this.budgetRepository.find({ where: { user: { id: userId } } });
+      
+      if (!budgets.length) {
+        throw new NotFoundException(`No budgets found for user with id ${userId}`);
+      }
+      const categories = await this.categoryRepository.find({
+        where: { budget: { user: { id: userId } } },
+        relations: ['budget'],
+      });
+
+      if (!categories.length) {
+        throw new NotFoundException(`No categories found for user with id ${userId}`);
+      }
+
+      return categories;
+    } catch (error) {
+      console.error('Error al listar categorías:', error);
+      throw new BadRequestException('An unexpected error occurred while fetching categories');
     }
   }
 }
