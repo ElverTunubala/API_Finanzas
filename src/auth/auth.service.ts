@@ -14,7 +14,9 @@ export class AuthService {
   async register(userObject: RegisterAuthDto) {
     const findEmail = await this.userService.findOneByEmail(userObject.email);
 
-    if (findEmail) throw new HttpException('USER ALREADY EXISTS', 404);
+    // if (findEmail) throw new HttpException('USER ALREADY EXISTS', 404);
+    if (findEmail) throw new HttpException('USER ALREADY EXISTS', 409); // Cambiar 404 por 409
+
 
     const { password, username, email, currency} = userObject;
     const plainToHash = await hash(password, 10);
